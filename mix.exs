@@ -25,12 +25,12 @@ defmodule AnalyticsElixir.Mixfile do
     [
       {:dialyxir, "~> 1.0.0", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.24", only: :dev, runtime: false},
-      {:hackney, "~> 1.15"},
+      {:hackney, "~> 1.20"},
       {:jason, ">= 1.0.0"},
       {:mox, "~> 0.5", only: :test},
       {:retry, "~> 0.13"},
       {:telemetry, "~> 0.4.2 or ~> 1.0"},
-      {:tesla, "~> 1.2"}
+      {:tesla, "~> 1.9"}
     ]
   end
 
