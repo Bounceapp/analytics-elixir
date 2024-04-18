@@ -15,10 +15,10 @@ defmodule Segment.Analytics do
   @doc """
     Make a call to Segment with an event. Should be of type `Track, Identify, Screen, Alias, Group or Page`
   """
-  @spec send(Segment.segment_event()) :: :ok
-  def send(%{__struct__: mod} = event)
+  @spec send(atom(), Segment.segment_event()) :: :ok
+  def send(source_name, %{__struct__: mod} = event)
       when mod in [Track, Identify, Screen, Alias, Group, Page] do
-    call(event)
+    call(event, source_name)
   end
 
   @doc """
@@ -27,9 +27,9 @@ defmodule Segment.Analytics do
 
     See [https://segment.com/docs/spec/track/](https://segment.com/docs/spec/track/)
   """
-  @spec track(Segment.Analytics.Track.t()) :: :ok
-  def track(t = %Track{}) do
-    call(t)
+  @spec track(atom(), Segment.Analytics.Track.t()) :: :ok
+  def track(source_name, t = %Track{}) do
+    call(t, source_name)
   end
 
   @doc """
@@ -38,15 +38,15 @@ defmodule Segment.Analytics do
 
     See [https://segment.com/docs/spec/track/](https://segment.com/docs/spec/track/)
   """
-  @spec track(segment_id(), String.t(), map(), Segment.Analytics.Context.t()) :: :ok
-  def track(user_id, event_name, properties \\ %{}, context \\ Context.new()) do
+  @spec track(atom(), segment_id(), String.t(), map(), Segment.Analytics.Context.t()) :: :ok
+  def track(source_name, user_id, event_name, properties \\ %{}, context \\ Context.new()) do
     %Track{
       userId: user_id,
       event: event_name,
       properties: properties,
       context: context
     }
-    |> call
+    |> call(source_name)
   end
 
   @doc """
@@ -55,9 +55,9 @@ defmodule Segment.Analytics do
 
     See [https://segment.com/docs/spec/identify/](https://segment.com/docs/spec/identify/)
   """
-  @spec identify(Segment.Analytics.Identify.t()) :: :ok
-  def identify(i = %Identify{}) do
-    call(i)
+  @spec identify(atom(), Segment.Analytics.Identify.t()) :: :ok
+  def identify(source_name, i = %Identify{}) do
+    call(i, source_name)
   end
 
   @doc """
@@ -65,10 +65,10 @@ defmodule Segment.Analytics do
 
   See [https://segment.com/docs/spec/identify/](https://segment.com/docs/spec/identify/)
   """
-  @spec identify(segment_id(), map(), Segment.Analytics.Context.t()) :: :ok
-  def identify(user_id, traits \\ %{}, context \\ Context.new()) do
+  @spec identify(atom(), segment_id(), map(), Segment.Analytics.Context.t()) :: :ok
+  def identify(source_name, user_id, traits \\ %{}, context \\ Context.new()) do
     %Identify{userId: user_id, traits: traits, context: context}
-    |> call
+    |> call(source_name)
   end
 
   @doc """
@@ -77,9 +77,9 @@ defmodule Segment.Analytics do
 
   See [https://segment.com/docs/spec/screen/](https://segment.com/docs/spec/screen/)
   """
-  @spec screen(Segment.Analytics.Screen.t()) :: :ok
-  def screen(s = %Screen{}) do
-    call(s)
+  @spec screen(atom(), Segment.Analytics.Screen.t()) :: :ok
+  def screen(source_name, s = %Screen{}) do
+    call(s, source_name)
   end
 
   @doc """
@@ -87,15 +87,15 @@ defmodule Segment.Analytics do
 
   See [https://segment.com/docs/spec/screen/](https://segment.com/docs/spec/screen/)
   """
-  @spec screen(segment_id(), String.t(), map(), Segment.Analytics.Context.t()) :: :ok
-  def screen(user_id, screen_name \\ "", properties \\ %{}, context \\ Context.new()) do
+  @spec screen(atom(), segment_id(), String.t(), map(), Segment.Analytics.Context.t()) :: :ok
+  def screen(source_name, user_id, screen_name \\ "", properties \\ %{}, context \\ Context.new()) do
     %Screen{
       userId: user_id,
       name: screen_name,
       properties: properties,
       context: context
     }
-    |> call
+    |> call(source_name)
   end
 
   @doc """
@@ -103,9 +103,9 @@ defmodule Segment.Analytics do
 
   See [https://segment.com/docs/spec/alias/](https://segment.com/docs/spec/alias/)
   """
-  @spec alias(Segment.Analytics.Alias.t()) :: :ok
-  def alias(a = %Alias{}) do
-    call(a)
+  @spec alias(atom(), Segment.Analytics.Alias.t()) :: :ok
+  def alias(source_name, a = %Alias{}) do
+    call(a, source_name)
   end
 
   @doc """
@@ -113,10 +113,10 @@ defmodule Segment.Analytics do
 
   See [https://segment.com/docs/spec/alias/](https://segment.com/docs/spec/alias/)
   """
-  @spec alias(segment_id(), segment_id(), Segment.Analytics.Context.t()) :: :ok
-  def alias(user_id, previous_id, context \\ Context.new()) do
+  @spec alias(atom(), segment_id(), segment_id(), Segment.Analytics.Context.t()) :: :ok
+  def alias(source_name, user_id, previous_id, context \\ Context.new()) do
     %Alias{userId: user_id, previousId: previous_id, context: context}
-    |> call
+    |> call(source_name)
   end
 
   @doc """
@@ -124,9 +124,9 @@ defmodule Segment.Analytics do
 
   See [https://segment.com/docs/spec/group/](https://segment.com/docs/spec/group/)
   """
-  @spec group(Segment.Analytics.Group.t()) :: :ok
-  def group(g = %Group{}) do
-    call(g)
+  @spec group(atom(), Segment.Analytics.Group.t()) :: :ok
+  def group(source_name, g = %Group{}) do
+    call(g, source_name)
   end
 
   @doc """
@@ -135,10 +135,10 @@ defmodule Segment.Analytics do
 
   See [https://segment.com/docs/spec/group/](https://segment.com/docs/spec/group/)
   """
-  @spec group(segment_id(), segment_id(), map(), Segment.Analytics.Context.t()) :: :ok
-  def group(user_id, group_id, traits \\ %{}, context \\ Context.new()) do
+  @spec group(atom(), segment_id(), segment_id(), map(), Segment.Analytics.Context.t()) :: :ok
+  def group(source_name, user_id, group_id, traits \\ %{}, context \\ Context.new()) do
     %Group{userId: user_id, groupId: group_id, traits: traits, context: context}
-    |> call
+    |> call(source_name)
   end
 
   @doc """
@@ -146,9 +146,9 @@ defmodule Segment.Analytics do
 
   See [https://segment.com/docs/spec/page/](https://segment.com/docs/spec/page/)
   """
-  @spec page(Segment.Analytics.Page.t()) :: :ok
-  def page(p = %Page{}) do
-    call(p)
+  @spec page(atom(), Segment.Analytics.Page.t()) :: :ok
+  def page(source_name, p = %Page{}) do
+    call(p, source_name)
   end
 
   @doc """
@@ -156,14 +156,14 @@ defmodule Segment.Analytics do
 
   See [https://segment.com/docs/spec/page/](https://segment.com/docs/spec/page/)
   """
-  @spec page(segment_id(), String.t(), map(), Segment.Analytics.Context.t()) :: :ok
-  def page(user_id, page_name \\ "", properties \\ %{}, context \\ Context.new()) do
+  @spec page(atom(), segment_id(), String.t(), map(), Segment.Analytics.Context.t()) :: :ok
+  def page(source_name, user_id, page_name \\ "", properties \\ %{}, context \\ Context.new()) do
     %Page{userId: user_id, name: page_name, properties: properties, context: context}
-    |> call
+    |> call(source_name)
   end
 
-  @spec call(Segment.segment_event()) :: :ok
-  def call(event) do
-    Segment.Config.service().call(event)
+  @spec call(Segment.segment_event(), atom()) :: :ok
+  def call(event, source_name) do
+    Segment.Config.service().call(event, source_name)
   end
 end

@@ -13,9 +13,17 @@ defmodule Segment.Analytics.Sender do
     Start the `Segment.Analytics.Sender` GenServer with an Segment HTTP Source API Write Key
   """
   @spec start_link(String.t()) :: GenServer.on_start()
-  def start_link(api_key) do
-    client = Segment.Http.client(api_key)
-    GenServer.start_link(__MODULE__, client, name: __MODULE__)
+  def start_link(args) do
+    clients =
+      case args do
+        api_key when is_bitstring(api_key) ->
+          [default: Segment.Http.client(api_key)]
+
+        args when is_list(args) ->
+          Enum.map(args, fn {name, api_key} -> {name, Segment.Http.client(api_key)} end)
+      end
+
+    GenServer.start_link(__MODULE__, clients, name: __MODULE__)
   end
 
   @doc """
@@ -23,9 +31,17 @@ defmodule Segment.Analytics.Sender do
     for testing purposes to override the Adapter with a Mock.
   """
   @spec start_link(String.t(), Segment.Http.adapter()) :: GenServer.on_start()
-  def start_link(api_key, adapter) do
-    client = Segment.Http.client(api_key, adapter)
-    GenServer.start_link(__MODULE__, {client, :queue.new()}, name: __MODULE__)
+  def start_link(args, adapter) do
+    clients =
+      case args do
+        api_key when is_bitstring(api_key) ->
+          [default: Segment.Http.client(api_key, adapter)]
+
+        args when is_list(args) ->
+          Enum.map(args, fn {name, api_key} -> {name, Segment.Http.client(api_key)} end)
+      end
+
+    GenServer.start_link(__MODULE__, clients, name: __MODULE__)
   end
 
   # client
@@ -34,9 +50,9 @@ defmodule Segment.Analytics.Sender do
     This event will be sent immediately and asynchronously
   """
   @spec call(Segment.segment_event()) :: :ok
-  def call(%{__struct__: mod} = event)
+  def call(%{__struct__: mod} = event, client_name \\ :default)
       when mod in [Track, Identify, Screen, Alias, Group, Page] do
-    callp(event)
+    callp(event, client_name)
   end
 
   # GenServer Callbacks
@@ -47,13 +63,13 @@ defmodule Segment.Analytics.Sender do
   end
 
   @impl true
-  def handle_cast({:send, event}, client) do
-    Task.start_link(fn -> Segment.Http.send(client, event) end)
-    {:noreply, client}
+  def handle_cast({:send, event, client_name}, clients) do
+    Task.start_link(fn -> Segment.Http.send(clients[client_name], event) end)
+    {:noreply, clients}
   end
 
   # Helpers
-  defp callp(event) do
-    GenServer.cast(__MODULE__, {:send, event})
+  defp callp(event, client_name) do
+    GenServer.cast(__MODULE__, {:send, event, client_name})
   end
 end

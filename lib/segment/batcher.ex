@@ -26,9 +26,18 @@ defmodule Segment.Analytics.Batcher do
     Start the `Segment.Analytics.Batcher` GenServer with an Segment HTTP Source API Write Key
   """
   @spec start_link(String.t()) :: GenServer.on_start()
-  def start_link(api_key) do
-    client = Segment.Http.client(api_key)
-    GenServer.start_link(__MODULE__, {client, :queue.new()}, name: __MODULE__)
+  def start_link(args) do
+    clients =
+      case args do
+        api_key when is_bitstring(api_key) ->
+          [default: Segment.Http.client(api_key)]
+
+        args when is_list(args) ->
+          Enum.map(args, fn {name, api_key} -> {name, Segment.Http.client(api_key)} end)
+      end
+
+    queues = Enum.map(clients, fn {name, _} -> {name, :queue.new()} end)
+    GenServer.start_link(__MODULE__, {clients, queues}, name: __MODULE__)
   end
 
   @doc """
@@ -36,9 +45,18 @@ defmodule Segment.Analytics.Batcher do
     for testing purposes to override the Adapter with a Mock.
   """
   @spec start_link(String.t(), Segment.Http.adapter()) :: GenServer.on_start()
-  def start_link(api_key, adapter) do
-    client = Segment.Http.client(api_key, adapter)
-    GenServer.start_link(__MODULE__, {client, :queue.new()}, name: __MODULE__)
+  def start_link(args, adapter) do
+    clients =
+      case args do
+        api_key when is_bitstring(api_key) ->
+          [default: Segment.Http.client(api_key, adapter)]
+
+        args when is_list(args) ->
+          Enum.map(args, fn {name, api_key} -> {name, Segment.Http.client(api_key)} end)
+      end
+
+    queues = Enum.map(clients, fn {name, _} -> {name, :queue.new()} end)
+    GenServer.start_link(__MODULE__, {clients, queues}, name: __MODULE__)
   end
 
   # client
@@ -47,9 +65,9 @@ defmodule Segment.Analytics.Batcher do
     This event will be queued and sent later in a batch.
   """
   @spec call(Segment.segment_event()) :: :ok
-  def call(%{__struct__: mod} = event)
+  def call(%{__struct__: mod} = event, client_name \\ :default)
       when mod in [Track, Identify, Screen, Alias, Group, Page] do
-    enqueue(event)
+    enqueue(event, client_name)
   end
 
   @doc """
@@ -69,26 +87,33 @@ defmodule Segment.Analytics.Batcher do
   end
 
   @impl true
-  def handle_cast({:enqueue, event}, {client, queue}) do
-    {:noreply, {client, :queue.in(event, queue)}}
+  def handle_cast({:enqueue, event, client_name}, {clients, queues}) do
+    {:noreply, {clients, Keyword.put(queues, client_name, :queue.in(event, queues[client_name]))}}
   end
 
   @impl true
-  def handle_call(:flush, _from, {client, queue}) do
-    items = :queue.to_list(queue)
-    if length(items) > 0, do: Segment.Http.batch(client, items)
-    {:reply, :ok, {client, :queue.new()}}
+  def handle_call(:flush, _from, {clients, queues}) do
+    # flush all queues
+    Enum.each(clients, fn {name, client} ->
+      {items, _queue} = extract_batch(queues[name], :queue.len(queues[name]))
+      if length(items) > 0, do: Segment.Http.batch(client, items)
+    end)
+
+    {:reply, :ok, {clients, Enum.map(queues, fn {name, _} -> {name, :queue.new()} end)}}
   end
 
   @impl true
-  def handle_info(:process_batch, {client, queue}) do
-    length = :queue.len(queue)
-    {items, queue} = extract_batch(queue, length)
-
-    if length(items) > 0, do: Segment.Http.batch(client, items)
+  def handle_info(:process_batch, {clients, queues}) do
+    # process all queues and update queues variable
+    queues =
+      Enum.map(clients, fn {name, client} ->
+        {items, queue} = extract_batch(queues[name], :queue.len(queues[name]))
+        if length(items) > 0, do: Segment.Http.batch(client, items)
+        {name, queue}
+      end)
 
     schedule_batch_send()
-    {:noreply, {client, queue}}
+    {:noreply, {clients, queues}}
   end
 
   def handle_info({:ssl_closed, _msg}, state), do: {:no_reply, state}
@@ -98,8 +123,8 @@ defmodule Segment.Analytics.Batcher do
     Process.send_after(self(), :process_batch, Segment.Config.batch_every_ms())
   end
 
-  defp enqueue(event) do
-    GenServer.cast(__MODULE__, {:enqueue, event})
+  defp enqueue(event, client_name) do
+    GenServer.cast(__MODULE__, {:enqueue, event, client_name})
   end
 
   defp extract_batch(queue, 0),

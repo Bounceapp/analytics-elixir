@@ -31,6 +31,12 @@ Start the Segment agent with your write_key from Segment for a HTTP API Server S
 Segment.start_link("YOUR_WRITE_KEY")
 ```
 
+You can optionally start the Segment agent to be able to send events to multiple sources. In that case, just provide a write key for each source name:
+
+```elixir
+Segment.start_link(source_1: "YOUR_WRITE_KEY_S1", source_2: "YOUR_WRITE_KEY_S2")
+```
+
 There are then two ways to call the different methods on the API.
 A basic way through `Segment.Analytics` functions with either the full event Struct
 or some helper methods (also allowing Context and Integrations to be set manually).
@@ -43,79 +49,79 @@ The other way is to drop down lower and use `Segment.Http` `send` and `batch` di
 ### Track
 
 ```elixir
-Segment.Analytics.track(user_id, event, %{property1: "", property2: ""})
+Segment.Analytics.track(source, user_id, event, %{property1: "", property2: ""})
 ```
 
 or the full way using a struct with all the possible options for the track call
 
 ```elixir
 %Segment.Analytics.Track{userId: "sdsds", event: "eventname", properties: %{property1: "", property2: ""}}
-|> Segment.Analytics.track
+|> Segment.Analytics.track(source)
 ```
 
 ### Identify
 
 ```elixir
-Segment.Analytics.identify(user_id, %{trait1: "", trait2: ""})
+Segment.Analytics.identify(source, user_id, %{trait1: "", trait2: ""})
 ```
 
 Or the full way using a struct with all the possible options for the identify call.
 
 ```elixir
 %Segment.Analytics.Identify{userId: "sdsds", traits: %{trait1: "", trait2: ""}}
-|> Segment.Analytics.identify
+|> Segment.Analytics.identify(source)
 ```
 
 ### Screen
 
 ```elixir
-Segment.Analytics.screen(user_id, name)
+Segment.Analytics.screen(source, user_id, name)
 ```
 
 Or the full way using a struct with all the possible options for the screen call.
 
 ```elixir
 %Segment.Analytics.Screen{userId: "sdsds", name: "dssd"}
-|> Segment.Analytics.screen
+|> Segment.Analytics.screen(source)
 ```
 
 ### Alias
 
 ```elixir
-Segment.Analytics.alias(user_id, previous_id)
+Segment.Analytics.alias(source, user_id, previous_id)
 ```
 
 Or the full way using a struct with all the possible options for the alias call.
 
 ```elixir
 %Segment.Analytics.Alias{userId: "sdsds", previousId: "dssd"}
-|> Segment.Analytics.alias
+|> Segment.Analytics.alias(source)
 ```
 
 ### Group
 
 ```elixir
-Segment.Analytics.group(user_id, group_id)
+Segment.Analytics.group(source, user_id, group_id)
 ```
 
 Or the full way using a struct with all the possible options for the group call.
 
 ```elixir
 %Segment.Analytics.Group{userId: "sdsds", groupId: "dssd"}
-|> Segment.Analytics.group
+|> Segment.Analytics.group(source)
 ```
 
 ### Page
 
 ```elixir
-Segment.Analytics.page(user_id, name)
+Segment.Analytics.page(source, user_id, name)
 ```
 
 Or the full way using a struct with all the possible options for the page call.
 
 ```elixir
 %Segment.Analytics.Page{userId: "sdsds", name: "dssd"}
-|> Segment.Analytics.page
+|> Segment.Analytics.page(source)
 ```
 
 ### Using the Segment Context
@@ -124,7 +130,7 @@ If you want to set the Context manually you should create a `Segment.Analytics.C
 
 ```elixir
 context = Segment.Analytics.Context.new(%{active: false})
-Segment.Analytics.track(user_id, event, %{property1: "", property2: ""}, context)
+Segment.Analytics.track(:default, user_id, event, %{property1: "", property2: ""}, context)
 ```
 
 ## Configuration
@@ -155,10 +161,23 @@ This is how I add to a Phoenix project (may not be your preferred way)
       write_key: "2iFFnRsCfi"
     ```
 
+    or
+
+    ```elixir
+    config :segment,
+    write_keys: [source_1: "2iFFnRsCfi". source_2: "AakdKAsds"]
+    ```
+
 3.  Start the Segment GenServer in the supervised children list. In `application.ex` add to the children list:
 
     ```elixir
     {Segment, Application.get_env(:segment, :write_key)}
+    ```
+
+    or with multiple sources
+
+    ```elixir
+    {Segment, Application.get_env(:segment, :write_keys)}
     ```
 
 ## Running tests
